@@ -1,6 +1,7 @@
 # Weapon Gear — DoL 武器 / 枪械 / 护甲系统 Mod
 
 > English: [README.en.md](README.en.md)
+> 📥 最新版下载：https://github.com/Qiufeng258/weapon-gear-mod/releases
 
 机制型装备扩展：**不渲染贴图，只加数值与玩法**。内置游戏内编制器 + 网页版编制器，支持自定义武器包分享。
 

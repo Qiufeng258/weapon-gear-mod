@@ -1,5 +1,7 @@
 # Weapon Gear — DoL Weapon / Firearm / Armor System Mod
 
+> 📥 Latest release: https://github.com/Qiufeng258/weapon-gear-mod/releases
+
 A mechanic-only equipment expansion: **no rendered clothing images, purely stats & gameplay**. Ships with an in-game builder and a web editor, plus a shareable custom weapon pack ecosystem.
 
 ## Features
