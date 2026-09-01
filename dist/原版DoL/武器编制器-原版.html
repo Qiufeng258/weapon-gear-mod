@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>武器编制器 — Weapon Pack Editor（原版 DoL 版）</title>
+<style>
+  body { font-family: "Microsoft YaHei", sans-serif; background: #1a1a2e; color: #eee; margin: 0; padding: 20px; }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 20px; }
+  .toolbar { background: #16213e; border: 1px solid #333; border-radius: 8px; padding: 12px; margin: 12px 0; }
+  .toolbar input[type=text] { width: 260px; padding: 6px; }
+  .card { background: #16213e; border: 1px solid #444; border-radius: 8px; padding: 12px; margin: 10px 0; }
+  .card .row { margin: 6px 0; }
+  .card label { display: inline-block; width: 90px; color: #9aa; }
+  .card input[type=text], .card input[type=number], .card select, .card textarea {
+    background: #0f3460; color: #eee; border: 1px solid #555; padding: 5px; border-radius: 4px;
+  }
+  .card textarea { width: 70%; height: 40px; vertical-align: top; }
+  .thumb { border: 1px solid #666; border-radius: 4px; vertical-align: middle; }
+  .preview { font-size: 12px; color: #889; margin-top: 6px; }
+  .preview-label { color: #667; }
+  .maxdmg { color: #e8c060; font-weight: bold; }
+  .armor-score { font-weight: bold; }
+  .tier-t1 { color: #999; } .tier-t2 { color: #7cc77c; } .tier-t3 { color: #5fc8d8; }
+  .tier-t4 { color: #a55fce; } .tier-t5 { color: #e8c060; } .tier-t6 { color: #e55; }
+  /* 右侧战斗参考面板 */
+  .ref-panel {
+    position: fixed; right: 10px; top: 10px; width: 250px; max-height: calc(100vh - 20px);
+    overflow-y: auto; background: #16213e; border: 1px solid #444; border-radius: 8px;
+    padding: 10px 12px; font-size: 12px; color: #ccd; z-index: 99;
+  }
+  .ref-panel h3 { margin: 0 0 6px; font-size: 14px; color: #e8c060; }
+  .ref-panel h4 { margin: 8px 0 3px; font-size: 12px; color: #9aa; }
+  .ref-panel table { border-collapse: collapse; width: 100%; }
+  .ref-panel td, .ref-panel th { padding: 1px 4px; text-align: left; }
+  .ref-panel .hint { color: #778; }
+  .ref-toggle { position: fixed; right: 10px; top: 10px; z-index: 100; }
+  /* 名称配色档位（与游戏同表）：灰→绿→青→紫→金→红 */
+  .card input.wg-name-tier-1 { color: #999; }
+  .card input.wg-name-tier-2 { color: #7cc77c; }
+  .card input.wg-name-tier-3 { color: #5fc8d8; }
+  .card input.wg-name-tier-4 { color: #a55fce; }
+  .card input.wg-name-tier-5 { color: #e8c060; }
+  .card input.wg-name-tier-6 { color: #e55; }
+  button { background: #0f3460; color: #eee; border: 1px solid #555; padding: 6px 12px; border-radius: 5px; cursor: pointer; margin-right: 6px; }
+  button:hover { background: #1a4a7a; }
+  .danger { background: #7a1a1a; } .danger:hover { background: #9a2a2a; }
+  .hint { color: #889; font-size: 12px; }
+  .msg { color: #8d8; margin-top: 8px; }
+  footer { margin-top: 20px; color: #667; font-size: 12px; line-height: 1.8; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🛠 武器编制器（Weapon Pack Editor）— 原版 DoL 版</h1>
+  <p class="hint">编好武器 → 导出武器包 mod（zip）→ 在游戏 ModLoader 安装。需要前置 mod：<b>weapon_gear ^2.0.0</b>（先装基础 mod，再装武器包）。</p>
+
+  <div class="toolbar">
+    <label>武器包名：</label>
+    <input type="text" id="packName" placeholder="例如：我的武器包">
+    <span class="hint">（将作为 mod 名 weapon_pack_xxx）</span>
+    <br><br>
+    <button onclick="Editor.addWeapon()">＋ 添加武器</button>
+    <button onclick="Editor.loadExamples()">载入示例</button>
+    <button class="danger" onclick="Editor.clearAll()">清空列表</button>
+    <button onclick="Editor.importPack()">📥 导入武器包 (zip)</button>
+    <input type="file" id="importFile" accept=".zip,application/zip" style="display:none">
+    <button onclick="Editor.exportPack()" style="background:#1a7a3a;">📦 导出武器包 (zip)</button>
+    <div id="msg" class="msg"></div>
+  </div>
+
+  <div id="list"></div>
+
+  <footer>
+    字段说明：类型（钝器/利器/枪械/徒手，仅文案）· 基础伤害（固定加成）· 伤害倍率（1.0~3.0）·
+    挂钩属性（伤害随属性提升：每 N 点 +1）· 价格（商店售价）· 图片（可选，商店显示图标，无图则不显示）。
+    提示：商店卡片只会显示"名称/介绍/基础加成/挂钩属性"，不会显示具体换算数值。
+  </footer>
+</div>
+
+<div class="ref-panel" id="refPanel">
+  <h3>📖 战斗参考</h3>
+  <button onclick="document.getElementById('refPanel').style.display='none';this.style.display='none'">✕ 收起</button>
+
+  <h4>NPC 血量</h4>
+  <table>
+    <tr><td>普通敌人</td><td>125 ~ 250</td></tr>
+    <tr><td>成人最高</td><td><b>600</b>（贝利 600）</td></tr>
+    <tr><td>野兽最高</td><td>500</td></tr>
+  </table>
+
+  <h4>NPC 攻击伤害（violence）</h4>
+  <table>
+    <tr><td>轻击</td><td>1 ~ 3</td></tr>
+    <tr><td>常规攻击</td><td>4 ~ 6</td></tr>
+    <tr><td>中击</td><td>8 ~ 16</td></tr>
+    <tr><td>重击</td><td>20 ~ 50</td></tr>
+    <tr><td>极端事件</td><td>100 ~ 200</td></tr>
+  </table>
+  <div class="hint">战斗里单招常见 1~15；贝利剧情事件 6。</div>
+
+  <h4>伤害换算（无减免时）</h4>
+  <table>
+    <tr><td>疼痛</td><td>≈ violence N（上限 200）</td></tr>
+    <tr><td>压力</td><td>≈ N × 10</td></tr>
+    <tr><td>创伤</td><td>≈ N ÷ 2</td></tr>
+  </table>
+  <div class="hint">穿护甲后疼痛/压力/创伤/兴奋/自控都会按护甲减伤。</div>
+
+  <h4>护甲防护值（灰→红）</h4>
+  <div><span class="tier-t1">＜15 灰</span> · <span class="tier-t2">≥15 绿</span> · <span class="tier-t3">≥35 青</span></div>
+  <div><span class="tier-t4">≥70 紫</span> · <span class="tier-t5">≥120 金</span> · <span class="tier-t6">≥200 红</span></div>
+
+  <h4>名称配色档位</h4>
+  <div>近战（最高伤害）：<span class="tier-t2">≥20 绿</span> <span class="tier-t3">≥60 青</span> <span class="tier-t4">≥100 紫</span> <span class="tier-t5">≥150 金</span> <span class="tier-t6">≥200 红</span></div>
+  <div>枪械（实际伤害）：<span class="tier-t2">≥50 绿</span> <span class="tier-t3">≥80 青</span> <span class="tier-t4">≥120 紫</span> <span class="tier-t5">≥200 金</span> <span class="tier-t6">≥400 红</span></div>
+
+  <div class="hint">设计参考：想 2~3 拳打死最强 NPC（600 血），单次最高伤害要 ≥200~300。</div>
+</div>
+
+<script>
+/* Minimal ZIP writer (STORED, no compression) — pure JS, no dependencies.
+ * Used by the weapon editor to export mod packs. */
+var ZipLib = (function () {
+    "use strict";
+
+    var CRC_TABLE = null;
+    function crcTable() {
+        if (CRC_TABLE) return CRC_TABLE;
+        var t = new Array(256);
+        for (var n = 0; n < 256; n++) {
+            var c = n;
+            for (var k = 0; k < 8; k++) {
+                c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+            }
+            t[n] = c >>> 0;
+        }
+        CRC_TABLE = t;
+        return t;
+    }
+    function crc32(bytes) {
+        var t = crcTable();
+        var c = 0xFFFFFFFF;
+        for (var i = 0; i < bytes.length; i++) {
+            c = t[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+        }
+        return (c ^ 0xFFFFFFFF) >>> 0;
+    }
+
+    function strToBytes(s) {
+        var out = [];
+        for (var i = 0; i < s.length; i++) {
+            var code = s.charCodeAt(i);
+            if (code < 0x80) {
+                out.push(code);
+            } else if (code < 0x800) {
+                out.push(0xC0 | (code >> 6), 0x80 | (code & 63));
+            } else if (code < 0xD800 || code >= 0xE000) {
+                out.push(0xE0 | (code >> 12), 0x80 | ((code >> 6) & 63), 0x80 | (code & 63));
+            } else {
+                /* surrogate pair */
+                i++;
+                var code2 = s.charCodeAt(i);
+                var cp = 0x10000 + (((code & 0x3FF) << 10) | (code2 & 0x3FF));
+                out.push(0xF0 | (cp >> 18), 0x80 | ((cp >> 12) & 63), 0x80 | ((cp >> 6) & 63), 0x80 | (cp & 63));
+            }
+        }
+        return new Uint8Array(out);
+    }
+
+    function u16(v) { return [v & 0xFF, (v >>> 8) & 0xFF]; }
+    function u32(v) { return [v & 0xFF, (v >>> 8) & 0xFF, (v >>> 16) & 0xFF, (v >>> 24) & 0xFF]; }
+
+    /* files: [{name: string, data: Uint8Array}] — returns Uint8Array (zip, STORED) */
+    function makeZip(files) {
+        var localParts = [];
+        var centralParts = [];
+        var offset = 0;
+        var i, f, nameBytes, crc, size;
+
+        for (i = 0; i < files.length; i++) {
+            f = files[i];
+            nameBytes = strToBytes(f.name);
+            crc = crc32(f.data);
+            size = f.data.length;
+
+            /* local file header */
+            var lh = [];
+            lh = lh.concat(u32(0x04034b50));        /* signature */
+            lh = lh.concat(u16(20));                 /* version needed */
+            lh = lh.concat(u16(0x0800));             /* flags: UTF-8 names */
+            lh = lh.concat(u16(0));                  /* method: stored */
+            lh = lh.concat(u16(0), u16(0));          /* time, date */
+            lh = lh.concat(u32(crc));
+            lh = lh.concat(u32(size));               /* compressed size */
+            lh = lh.concat(u32(size));               /* uncompressed size */
+            lh = lh.concat(u16(nameBytes.length));
+            lh = lh.concat(u16(0));                  /* extra len */
+            var lhBytes = new Uint8Array(lh.length + nameBytes.length + size);
+            lhBytes.set(lh, 0);
+            lhBytes.set(nameBytes, lh.length);
+            lhBytes.set(f.data, lh.length + nameBytes.length);
+
+            /* central directory header */
+            var ch = [];
+            ch = ch.concat(u32(0x02014b50));         /* signature */
+            ch = ch.concat(u16(20));                 /* version made by */
+            ch = ch.concat(u16(20));                 /* version needed */
+            ch = ch.concat(u16(0x0800));             /* flags: UTF-8 names */
+            ch = ch.concat(u16(0));                  /* method */
+            ch = ch.concat(u16(0), u16(0));          /* time, date */
+            ch = ch.concat(u32(crc));
+            ch = ch.concat(u32(size));
+            ch = ch.concat(u32(size));
+            ch = ch.concat(u16(nameBytes.length));
+            ch = ch.concat(u16(0));                  /* extra */
+            ch = ch.concat(u16(0));                  /* comment */
+            ch = ch.concat(u16(0));                  /* disk */
+            ch = ch.concat(u16(0));                  /* internal attrs */
+            ch = ch.concat(u32(0));                  /* external attrs */
+            ch = ch.concat(u32(offset));
+            var chBytes = new Uint8Array(ch.length + nameBytes.length);
+            chBytes.set(ch, 0);
+            chBytes.set(nameBytes, ch.length);
+
+            localParts.push(lhBytes);
+            centralParts.push(chBytes);
+            offset += lhBytes.length;
+        }
+
+        /* end of central directory */
+        var totalLocal = 0, totalCentral = 0;
+        for (i = 0; i < localParts.length; i++) totalLocal += localParts[i].length;
+        for (i = 0; i < centralParts.length; i++) totalCentral += centralParts[i].length;
+        var eocd = [];
+        eocd = eocd.concat(u32(0x06054b50));
+        eocd = eocd.concat(u16(0), u16(0));
+        eocd = eocd.concat(u16(files.length), u16(files.length));
+        eocd = eocd.concat(u32(totalCentral));
+        eocd = eocd.concat(u32(totalLocal));
+        eocd = eocd.concat(u16(0));
+        var eocdBytes = new Uint8Array(eocd);
+
+        var out = new Uint8Array(totalLocal + totalCentral + eocdBytes.length);
+        var pos = 0, j;
+        for (i = 0; i < localParts.length; i++) {
+            out.set(localParts[i], pos); pos += localParts[i].length;
+        }
+        for (i = 0; i < centralParts.length; i++) {
+            out.set(centralParts[i], pos); pos += centralParts[i].length;
+        }
+        out.set(eocdBytes, pos);
+        return out;
+    }
+
+    /* ---- ZIP reader（供导入武器包用） ---- */
+    function utf8Decode(bytes) {
+        if (typeof TextDecoder !== "undefined") {
+            try { return new TextDecoder("utf-8").decode(bytes); } catch (e) { /* fall through */ }
+        }
+        var s = "";
+        for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+        try { return decodeURIComponent(escape(s)); } catch (e) { return s; }
+    }
+    function inflateRaw(u8) {
+        if (typeof DecompressionStream === "undefined") {
+            return Promise.reject(new Error("当前环境不支持 DEFLATE 解压，请用本工具导出的武器包（STORED）或换现代浏览器"));
+        }
+        return new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream("deflate-raw")))
+            .arrayBuffer().then(function (buf) { return new Uint8Array(buf); });
+    }
+    /* bytes: Uint8Array → Promise<{ [name]: {method, size, data:Uint8Array} }> */
+    function readZip(bytes) {
+        var i = bytes.length - 22;
+        var eocd = -1;
+        for (; i >= 0; i--) {
+            if (bytes[i] === 0x50 && bytes[i + 1] === 0x4b && bytes[i + 2] === 0x05 && bytes[i + 3] === 0x06) { eocd = i; break; }
+        }
+        if (eocd < 0) return Promise.reject(new Error("不是有效的 ZIP 文件"));
+        var count = bytes[eocd + 10] | (bytes[eocd + 11] << 8);
+        var cdOffset = (bytes[eocd + 16] | (bytes[eocd + 17] << 8) | (bytes[eocd + 18] << 16) | (bytes[eocd + 19] << 24)) >>> 0;
+        var p = cdOffset;
+        var files = {};
+        for (var n = 0; n < count; n++) {
+            if (p + 46 > bytes.length || bytes[p] !== 0x50 || bytes[p + 1] !== 0x4b || bytes[p + 2] !== 0x01 || bytes[p + 3] !== 0x02) {
+                return Promise.reject(new Error("ZIP 中央目录损坏"));
+            }
+            var flag = bytes[p + 8] | (bytes[p + 9] << 8);
+            var method = bytes[p + 10] | (bytes[p + 11] << 8);
+            var csize = (bytes[p + 20] | (bytes[p + 21] << 8) | (bytes[p + 22] << 16) | (bytes[p + 23] << 24)) >>> 0;
+            var usize = (bytes[p + 24] | (bytes[p + 25] << 8) | (bytes[p + 26] << 16) | (bytes[p + 27] << 24)) >>> 0;
+            var nameLen = bytes[p + 28] | (bytes[p + 29] << 8);
+            var extraLen = bytes[p + 30] | (bytes[p + 31] << 8);
+            var commentLen = bytes[p + 32] | (bytes[p + 33] << 8);
+            var lho = (bytes[p + 42] | (bytes[p + 43] << 8) | (bytes[p + 44] << 16) | (bytes[p + 45] << 24)) >>> 0;
+            var nameBytes = bytes.subarray(p + 46, p + 46 + nameLen);
+            var name;
+            if (flag & 0x0800) {
+                name = utf8Decode(nameBytes);
+            } else {
+                name = "";
+                for (var k = 0; k < nameBytes.length; k++) name += String.fromCharCode(nameBytes[k]);
+            }
+            if (lho + 30 > bytes.length) return Promise.reject(new Error("ZIP 条目损坏: " + name));
+            var localNameLen = bytes[lho + 26] | (bytes[lho + 27] << 8);
+            var localExtraLen = bytes[lho + 28] | (bytes[lho + 29] << 8);
+            var dataStart = lho + 30 + localNameLen + localExtraLen;
+            files[name] = { method: method, size: usize, data: bytes.subarray(dataStart, dataStart + csize) };
+            p += 46 + nameLen + extraLen + commentLen;
+        }
+        return Promise.resolve(files);
+    }
+    /* entry: {method, data} → Promise<string>（UTF-8 文本） */
+    function readZipText(entry) {
+        var inflate = entry.method === 0 ? Promise.resolve(entry.data)
+            : entry.method === 8 ? inflateRaw(entry.data)
+            : Promise.reject(new Error("不支持的 ZIP 压缩方式: " + entry.method));
+        return inflate.then(function (u8) { return utf8Decode(u8); });
+    }
+
+    return { makeZip: makeZip, strToBytes: strToBytes, crc32: crc32, readZip: readZip, readZipText: readZipText };
+})();
+
+if (typeof module !== "undefined" && module.exports) {
+    module.exports = ZipLib;
+}
+
+/* Weapon pack generation logic (no DOM) — used by the editor UI. */
+var PackGen = (function () {
+    "use strict";
+
+    var STATS = ["physique", "athletics", "handskill", "none"];
+    var TYPES = ["blunt", "blade", "gun", "armor", "unarmed"];
+
+    function sanitizeId(s) {
+        return String(s || "").replace(/[^A-Za-z0-9_\-\u4e00-\u9fa5]/g, "_").slice(0, 40) || "pack";
+    }
+
+    function sanitizeName(s) {
+        return String(s || "").trim().slice(0, 80);
+    }
+
+    /* 多属性挂钩规范化：scaleStats [{stat, per}, ...]，兼容旧单字段 */
+    function normalizeStats(raw) {
+        var out = [];
+        if (Array.isArray(raw.scaleStats)) {
+            for (var i = 0; i < raw.scaleStats.length; i++) {
+                var s = raw.scaleStats[i];
+                if (!s) continue;
+                var st = s.stat;
+                if (STATS.indexOf(st) === -1 || st === "none") continue;
+                out.push({ stat: st, per: Math.max(1, Math.round(Number(s.per) || 80)) });
+            }
+        } else if (raw.scaleStat && raw.scaleStat !== "none" && Number(raw.scalePer) > 0) {
+            out.push({ stat: raw.scaleStat, per: Math.max(1, Math.round(Number(raw.scalePer) || 80)) });
+        }
+        return out;
+    }
+
+    /* 校验并规范化一个武器条目；返回 {ok, item, error} */
+    function normalizeItem(raw, index) {
+        var item = {};
+        item.name = sanitizeName(raw.name);
+        if (!item.name) return { ok: false, error: "第 " + (index + 1) + " 件武器缺少名称" };
+        item.type = TYPES.indexOf(raw.type) >= 0 ? raw.type : "blunt";
+        /* 不设防：数值全部不设上限（倍率≥0.01、档位≥1，防 0/负/除零） */
+        item.baseDamage = Math.max(0, Math.round(Number(raw.baseDamage) || 0));
+        item.damageMult = Math.max(0.01, Math.round((Number(raw.damageMult) || 1) * 100) / 100);
+        item.scaleStats = normalizeStats(raw);
+        /* 兼容旧字段（第一项） */
+        item.scaleStat = item.scaleStats.length > 0 ? item.scaleStats[0].stat : "none";
+        item.scalePer = item.scaleStats.length > 0 ? item.scaleStats[0].per : 0;
+        item.price = Math.max(0, Math.round(Number(raw.price) || 0));
+        item.description = String(raw.description || "").trim().slice(0, 1000);
+        item.image = typeof raw.image === "string" && raw.image.indexOf("data:image/") === 0 ? raw.image : "";
+        item.caliber = item.type === "gun" ? String(raw.caliber || "9mm").trim().slice(0, 12) : "";
+        if (item.type === "armor") {
+            item.painReduction = Math.max(0, Math.round(Number(raw.painReduction) || 0));
+            item.painResist = Math.max(0, Math.min(100, Math.round(Number(raw.painResist) || 0)));
+            item.stressResist = Math.max(0, Math.min(100, Math.round(Number(raw.stressResist) || 0)));
+            item.traumaResist = Math.max(0, Math.min(100, Math.round(Number(raw.traumaResist) || 0)));
+            item.controlProtect = Math.max(0, Math.min(100, Math.round(Number(raw.controlProtect) || 0)));
+            item.maxDurability = Math.max(1, Math.round(Number(raw.maxDurability) || 100));
+            item.durability = item.maxDurability;
+            item.military = raw.military === true;
+        }
+        /* id: 随机后缀保证唯一 */
+        item.id = "pw_" + index + "_" + Math.floor(Math.random() * 1000000).toString(36);
+        return { ok: true, item: item };
+    }
+
+    /* 生成武器包 zip 的文件列表 [{name, data:Uint8Array}] */
+    function buildFiles(packName, rawItems) {
+        var items = [];
+        for (var i = 0; i < rawItems.length; i++) {
+            var r = normalizeItem(rawItems[i], i);
+            if (!r.ok) throw new Error(r.error);
+            items.push(r.item);
+        }
+        if (items.length === 0) throw new Error("至少需要一件武器");
+
+        var idBase = sanitizeId(packName);
+        var boot = {
+            name: "weapon_pack_" + idBase,
+            version: "1.0.0",
+            styleFileList: [],
+            scriptFileList: ["weapons_data.js"],
+            tweeFileList: [],
+            imgFileList: [],
+            additionFile: ["readme.md"],
+            dependenceInfo: [
+                { modName: "weapon_gear", version: "^2.0.0" }
+            ]
+        };
+
+        var NL = "\n";
+        var js = "(function () {" + NL;
+        js += "    var pack = " + JSON.stringify(items, null, 4) + ";" + NL;
+        js += "    window.weaponGearPacks = window.weaponGearPacks || [];" + NL;
+        js += "    for (var i = 0; i < pack.length; i++) window.weaponGearPacks.push(pack[i]);" + NL;
+        js += "})();" + NL;
+
+        var readme = "# " + packName + " 武器包" + NL + NL;
+        readme += "由武器编制器生成。" + NL + NL;
+        readme += "## 安装" + NL;
+        readme += "1. 先安装基础 mod：weapon_gear（^2.0.0）" + NL;
+        readme += "2. 再安装本武器包（顺序不能反，装反了包会被禁用）" + NL;
+        readme += "3. 进入游戏 → Domus Street → Weapon Shop，本包武器会出现在商品列表" + NL + NL;
+        readme += "## 本包武器" + NL;
+        for (var j = 0; j < items.length; j++) {
+            var desc = "（基础加成 +" + items[j].baseDamage + "，挂钩：" + items[j].scaleStat + "）";
+            if (items[j].type === "gun") desc = "（口径：" + items[j].caliber + "）";
+            if (items[j].type === "armor") desc = "（耐久 " + items[j].maxDurability + (items[j].military ? "，军用" : "，民用") + "）";
+            readme += "- " + items[j].name + desc + NL;
+        }
+
+        var files = [
+            { name: "boot.json", data: ZipLib.strToBytes(JSON.stringify(boot, null, 2)) },
+            { name: "weapons_data.js", data: ZipLib.strToBytes(js) },
+            { name: "readme.md", data: ZipLib.strToBytes(readme) }
+        ];
+        return { files: files, items: items, packName: idBase };
+    }
+
+    /* 从 weapons_data.js 提取 pack 数组的 JSON 文本（字符串/转义/嵌套感知） */
+    function extractPackArray(js) {
+        if (!js) return null;
+        var m = /var\s+pack\s*=\s*\[/.exec(js);
+        if (!m) return null;
+        var start = m.index + m[0].indexOf("[");
+        var depth = 0, inStr = false, esc = false;
+        for (var i = start; i < js.length; i++) {
+            var c = js[i];
+            if (inStr) {
+                if (esc) esc = false;
+                else if (c === "\\") esc = true;
+                else if (c === '"') inStr = false;
+                continue;
+            }
+            if (c === '"') { inStr = true; continue; }
+            if (c === "[") depth++;
+            else if (c === "]") { depth--; if (depth === 0) return js.slice(start, i + 1); }
+        }
+        return null;
+    }
+
+    return {
+        buildFiles: buildFiles,
+        normalizeItem: normalizeItem,
+        sanitizeId: sanitizeId,
+        extractPackArray: extractPackArray,
+        STATS: STATS,
+        TYPES: TYPES
+    };
+})();
+
+if (typeof module !== "undefined" && module.exports) {
+    module.exports = PackGen;
+}
+
+</script>
+<script>
+"use strict";
+var Editor = (function () {
+    var items = [];
+    var SAVE_KEY = "wg_editor_autosave_v1";
+    var TYPES = ["blunt", "blade", "gun", "armor", "unarmed"];
+    var TYPE_CN = { blunt: "钝器", blade: "利器", gun: "枪械", armor: "护甲", unarmed: "徒手" };
+    var STATS = ["physique", "athletics", "handskill", "none"];
+    var STAT_CN = { physique: "体能", athletics: "运动", handskill: "格斗技巧", none: "无（纯固定）" };
+    var STAT_MAX = { physique: 15000, athletics: 1000, handskill: 1000, none: 0 };
+    function statOpts(cur) {
+        var s = "";
+        for (var i = 0; i < STATS.length; i++) {
+            var st = STATS[i];
+            var label = STAT_CN[st] + (STAT_MAX[st] ? "（上限 " + STAT_MAX[st] + "）" : "");
+            s += '<option value="' + st + '"' + (cur === st ? " selected" : "") + ">" + label + "</option>";
+        }
+        return s;
+    }
+    var CALIBERS = ["9x19", "762x25", "45acp", "57x28", "545x39", "556", "58x42", "9x39", "762", "44", "12g", "762x54r", "308", "338", "50bmg", "pg7"];
+    var CALIBER_CN = { "9x19": "9\u00d719mm", "762x25": "7.62\u00d725", "45acp": ".45 ACP", "57x28": "5.7\u00d728mm", "545x39": "5.45\u00d739mm", "556": "5.56\u00d745mm", "58x42": "5.8\u00d742mm", "9x39": "9\u00d739mm", "762": "7.62\u00d739mm", "44": ".44", "12g": "12\u00d770mm", "762x54r": "7.62\u00d754R", "308": "7.62\u00d751mm", "338": ".338", "50bmg": "12.7\u00d799mm", "pg7": "PG-7VM 火箭" };
+    var CALIBER_DMG = { "9x19": 100, "762x25": 100, "45acp": 200, "57x28": 200, "545x39": 300, "556": 300, "58x42": 300, "9x39": 400, "762": 400, "44": 400, "12g": 500, "762x54r": 500, "308": 600, "338": 800, "50bmg": 1000, "pg7": 2000 };
+    var CALIBER_PEN = { "9x19": 4, "762x25": 1, "45acp": 3, "57x28": 4, "545x39": 4, "556": 5, "58x42": 4, "9x39": 4, "762": 4, "44": 4, "12g": 0, "762x54r": 6, "308": 6, "338": 6, "50bmg": 6, "pg7": 4 };
+    function caliberOpts(cur) {
+        var s = "";
+        for (var i = 0; i < CALIBERS.length; i++) {
+            var c = CALIBERS[i];
+            s += '<option value="' + c + '"' + (cur === c ? " selected" : "") + ">" + CALIBER_CN[c] + "（伤害" + CALIBER_DMG[c] + "·穿甲" + CALIBER_PEN[c] + "）</option>";
+        }
+        return s;
+    }
+    function caliberOpts(cur) {
+        var s = "";
+        for (var i = 0; i < CALIBERS.length; i++) {
+            var c = CALIBERS[i];
+            s += '<option value="' + c + '"' + (cur === c ? " selected" : "") + ">" + CALIBER_CN[c] + "（伤害" + CALIBER_DMG[c] + "）</option>";
+        }
+        return s;
+    }
+
+    /* 多属性挂钩迁移：优先 scaleStats，旧单字段 scaleStat/scalePer 自动转 */
+    function itemStats(it) {
+        if (!it) return [];
+        if (Array.isArray(it.scaleStats)) return it.scaleStats;
+        if (it.scaleStat && it.scaleStat !== "none" && Number(it.scalePer) > 0) {
+            return [{ stat: it.scaleStat, per: Number(it.scalePer) }];
+        }
+        return [];
+    }
+
+    function newItem() {
+        return { name: "", type: "blunt", baseDamage: 2, damageMult: 1.0, scaleStats: [{ stat: "physique", per: 80 }], scaleStat: "physique", scalePer: 80, price: 500, description: "", image: "", caliber: "9mm",
+                 painReduction: 5, painResist: 10, stressResist: 5, traumaResist: 0, controlProtect: 0, maxDurability: 100, military: false };
+    }
+
+    function el(html) {
+        var d = document.createElement("div");
+        d.innerHTML = html;
+        return d.firstChild;
+    }
+
+    /* ---- 本地自动存档（localStorage）：每次输入/改动即存，打开页面直接恢复 ---- */
+    function saveAutosave() {
+        try {
+            if (typeof localStorage === "undefined") return;
+            var pnEl = document.getElementById("packName");
+            localStorage.setItem(SAVE_KEY, JSON.stringify({ packName: pnEl ? pnEl.value : "", items: items }));
+        } catch (e) { /* 存储不可用或空间不足：静默，导出 zip 仍是备份 */ }
+    }
+    function clearAutosave() {
+        try { if (typeof localStorage !== "undefined") localStorage.removeItem(SAVE_KEY); } catch (e) { /* ignore */ }
+    }
+    function msg(s) {
+        var m = document.getElementById("msg");
+        if (m) m.textContent = s;
+    }
+
+    function render() {
+        var list = document.getElementById("list");
+        list.innerHTML = "";
+        if (items.length === 0) {
+            list.innerHTML = '<p class="hint">还没有武器，点"添加武器"开始，或点"载入示例"看看效果。</p>';
+            return;
+        }
+        for (var i = 0; i < items.length; i++) {
+            list.appendChild(renderCard(i));
+            updateCardPreview(i);
+        }
+    }
+
+    /* ---- 实时预览：最终伤害 / 护甲等级（与游戏内商店展示同款公式与配色） ---- */
+    function calcMaxDamage(it) {
+        if (!it) return 0;
+        var dmg = Number(it.baseDamage) || 0;
+        if (it.type === "gun") {
+            var cd = CALIBER_DMG[it.caliber];
+            if (cd) dmg += Number(cd) || 0;
+        } else {
+            var ss = itemStats(it);
+            for (var i = 0; i < ss.length; i++) {
+                if (!ss[i] || ss[i].stat === "none") continue;
+                var per = Number(ss[i].per) || 0;
+                if (per > 0) dmg += Math.floor((STAT_MAX[ss[i].stat] || 0) / per);
+            }
+        }
+        return Math.round(dmg * (Number(it.damageMult) || 1));
+    }
+    /* 多属性行 HTML：每条 = 属性选择 + 每N点 + 删除；末尾 = 添加按钮 */
+    function statRowsHTML(i, it) {
+        var ss = itemStats(it);
+        var html = '';
+        for (var j = 0; j < ss.length; j++) {
+            html += '<div class="row"><label>属性' + (j + 1) + '</label>' +
+                '<select id="stat_' + i + '_' + j + '" onchange="Editor.onStatChange(' + i + ')">' + statOpts(ss[j].stat) + '</select>' +
+                '<input type="number" id="per_' + i + '_' + j + '" min="1" step="1" value="' + (Number(ss[j].per) || 80) + '" style="width:70px">' +
+                '<span class="hint"> 每 N 点 +1</span>' +
+                '<button class="danger" onclick="Editor.removeStat(' + i + ',' + j + ')">✕</button></div>';
+        }
+        html += '<div class="row"><button onclick="Editor.addStat(' + i + ')">＋ 添加属性</button><span class="hint"> 可多属性叠加（各属性独立换算相加）</span></div>';
+        return html;
+    }
+    function armorScoreOf(it) {
+        return (Number(it.painReduction) || 0) * 2
+            + (Number(it.painResist) || 0) + (Number(it.stressResist) || 0)
+            + (Number(it.traumaResist) || 0) + (Number(it.controlProtect) || 0);
+    }
+    function armorTierCls(score) {
+        if (score >= 200) return "t6";
+        if (score >= 120) return "t5";
+        if (score >= 70) return "t4";
+        if (score >= 35) return "t3";
+        if (score >= 15) return "t2";
+        return "t1";
+    }
+    function updateCardPreview(i) {
+        var el = document.getElementById("preview_" + i);
+        if (!el || !items[i]) return;
+        var it = items[i];
+        var nEl = document.getElementById("name_" + i);
+        if (nEl) nEl.className = nameTierCls(it); /* 名称颜色随数值实时变 */
+        if (it.type === "armor") {
+            var score = armorScoreOf(it);
+            el.innerHTML = '<span class="preview-label">护甲等级 </span><span class="armor-score ' + armorTierCls(score) + '">防护 ' + score + '</span>';
+        } else if (it.type === "gun") {
+            el.innerHTML = '<span class="preview-label">基础 +' + (Number(it.baseDamage) || 0) + ' · 实际伤害 </span><span class="maxdmg">≈' + calcMaxDamage(it) + '</span>';
+        } else {
+            var ss = itemStats(it);
+            var hookLabel = "";
+            if (ss.length > 0) {
+                var parts = [];
+                for (var h = 0; h < ss.length; h++) {
+                    if (ss[h] && ss[h].stat !== "none") parts.push(STAT_CN[ss[h].stat] + "/" + (Number(ss[h].per) || 0));
+                }
+                if (parts.length > 0) hookLabel = " · " + parts.join("、");
+            }
+            el.innerHTML = '<span class="preview-label">基础 +' + (Number(it.baseDamage) || 0) + hookLabel + ' · 最高伤害 </span><span class="maxdmg">≈' + calcMaxDamage(it) + '</span>';
+        }
+    }
+    function updateAllPreviews() {
+        for (var i = 0; i < items.length; i++) updateCardPreview(i);
+    }
+    /* 名称配色档位（与游戏同表）：近战/枪械按伤害、护甲按防护值 */
+    function nameTierCls(it) {
+        if (!it) return "";
+        if (it.type === "armor") {
+            var sc = armorScoreOf(it);
+            if (sc >= 200) return "wg-name-tier-6";
+            if (sc >= 120) return "wg-name-tier-5";
+            if (sc >= 70) return "wg-name-tier-4";
+            if (sc >= 35) return "wg-name-tier-3";
+            if (sc >= 15) return "wg-name-tier-2";
+            return "wg-name-tier-1";
+        }
+        var dmg = calcMaxDamage(it);
+        if (it.type === "gun") {
+            if (dmg >= 400) return "wg-name-tier-6";
+            if (dmg >= 200) return "wg-name-tier-5";
+            if (dmg >= 120) return "wg-name-tier-4";
+            if (dmg >= 80) return "wg-name-tier-3";
+            if (dmg >= 50) return "wg-name-tier-2";
+            return "wg-name-tier-1";
+        }
+        if (dmg >= 200) return "wg-name-tier-6";
+        if (dmg >= 150) return "wg-name-tier-5";
+        if (dmg >= 100) return "wg-name-tier-4";
+        if (dmg >= 60) return "wg-name-tier-3";
+        if (dmg >= 20) return "wg-name-tier-2";
+        return "wg-name-tier-1";
+    }
+
+    function opts(sel, arr, cn, cur) {
+        var s = "";
+        for (var i = 0; i < arr.length; i++) {
+            s += '<option value="' + arr[i] + '"' + (cur === arr[i] ? " selected" : "") + ">" + cn[arr[i]] + "</option>";
+        }
+        return s;
+    }
+
+    function renderCard(i) {
+        var it = items[i];
+        var card = el('<div class="card"></div>');
+        var rows = [
+            '<div class="row"><label>名称</label><input type="text" id="name_' + i + '" value="' + esc(it.name) + '" placeholder="武器名称" class="' + nameTierCls(it) + '"></div>',
+            '<div class="row"><label>类型</label><select id="type_' + i + '" onchange="Editor.onTypeChange(' + i + ')">' + opts(null, TYPES, TYPE_CN, it.type) + '</select></div>',
+            (it.type === "gun"
+                ? '<div class="row"><label>口径</label><select id="caliber_' + i + '">' + caliberOpts(it.caliber) + '</select><span class="hint"> 括号内为基础伤害</span></div>'
+                : ''),
+            (it.type === "armor"
+                ? '<div class="row"><label>减痛（固定）</label><input type="number" id="armReduction_' + i + '" min="0" value="' + it.painReduction + '"></div>' +
+                  '<div class="row"><label>疼痛抗性%</label><input type="number" id="armPainResist_' + i + '" min="0" max="100" value="' + it.painResist + '"></div>' +
+                  '<div class="row"><label>压力抗性%</label><input type="number" id="armStressResist_' + i + '" min="0" max="100" value="' + it.stressResist + '"></div>' +
+                  '<div class="row"><label>创伤抗性%</label><input type="number" id="armTraumaResist_' + i + '" min="0" max="100" value="' + it.traumaResist + '"></div>' +
+                  '<div class="row"><label>自控保护%</label><input type="number" id="armControl_' + i + '" min="0" max="100" value="' + it.controlProtect + '"></div>' +
+                  '<div class="row"><label>耐久上限</label><input type="number" id="armDur_' + i + '" min="1" value="' + it.maxDurability + '"></div>' +
+                  '<div class="row"><label>军用</label><input type="checkbox" id="armMilitary_' + i + '"' + (it.military ? " checked" : "") + '><span class="hint"> 需枪械解锁后出售</span></div>'
+                : '<div class="row"><label>基础伤害</label><input type="number" id="base_' + i + '" min="0" value="' + it.baseDamage + '"></div>' +
+                  '<div class="row"><label>伤害倍率</label><input type="number" id="mult_' + i + '" min="0.01" step="0.01" value="' + it.damageMult + '"></div>' +
+                  (it.type === "gun" ? '' : statRowsHTML(i, it))),
+            '<div class="row"><label>价格</label><input type="number" id="price_' + i + '" min="0" value="' + it.price + '"></div>',
+            '<div class="row"><label>描述</label><textarea id="desc_' + i + '">' + esc(it.description) + '</textarea></div>',
+            '<div class="row"><label>图片</label><input type="file" id="file_' + i + '" accept="image/*" style="width:220px"> ' +
+                (it.image ? '<img class="thumb" id="thumb_' + i + '" src="' + it.image + '" width="48" height="48"> <button class="danger" onclick="Editor.removeImage(' + i + ')">移除图片</button>' : '<span class="hint">可选，自动缩到 96px</span>') + '</div>',
+            '<div class="row"><button onclick="Editor.move(' + i + ',-1)">↑ 上移</button>' +
+                '<button onclick="Editor.move(' + i + ',1)">↓ 下移</button>' +
+                '<button class="danger" onclick="Editor.remove(' + i + ')">删除</button></div>'
+        ];
+        card.appendChild(el('<div>' + rows.join("") + '</div>'));
+        card.appendChild(el('<div class="preview" id="preview_' + i + '"></div>'));
+        var fi = card.querySelector("#file_" + i);
+        if (fi) fi.addEventListener("change", (function (idx) {
+            return function () { importImage(idx, this); };
+        })(i));
+        return card;
+    }
+
+    function esc(s) {
+        return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    function collect(i) {
+        var it = items[i];
+        it.name = document.getElementById("name_" + i).value;
+        it.type = document.getElementById("type_" + i).value;
+        var gv = function (id) {
+            var el = document.getElementById(id);
+            return el ? el.value : null;
+        };
+        var gnum = function (id, def) {
+            var v = gv(id);
+            return v === null ? def : (Number(v) || 0);
+        };
+        it.baseDamage = gnum("base_" + i, 0);
+        it.damageMult = gv("mult_" + i) === null ? 1 : (Number(gv("mult_" + i)) || 1);
+        /* 多属性挂钩：仅近战且有属性行时重建（枪/甲切换不清空） */
+        if (it.type !== "gun" && it.type !== "armor" && document.getElementById("stat_" + i + "_0")) {
+            var ss = [];
+            var j = 0;
+            while (document.getElementById("stat_" + i + "_" + j)) {
+                var st = document.getElementById("stat_" + i + "_" + j).value;
+                var per = Number(document.getElementById("per_" + i + "_" + j).value) || 0;
+                if (st && st !== "none" && per > 0) ss.push({ stat: st, per: per });
+                j++;
+            }
+            it.scaleStats = ss;
+            it.scaleStat = ss.length > 0 ? ss[0].stat : "none";
+            it.scalePer = ss.length > 0 ? ss[0].per : 0;
+        }
+        it.painReduction = gnum("armReduction_" + i, 0);
+        it.painResist = gnum("armPainResist_" + i, 0);
+        it.stressResist = gnum("armStressResist_" + i, 0);
+        it.traumaResist = gnum("armTraumaResist_" + i, 0);
+        it.controlProtect = gnum("armControl_" + i, 0);
+        it.maxDurability = gnum("armDur_" + i, 100);
+        var milEl = document.getElementById("armMilitary_" + i);
+        it.military = milEl ? milEl.checked : false;
+        var calEl = document.getElementById("caliber_" + i);
+        if (calEl) it.caliber = calEl.value;
+        it.price = gnum("price_" + i, 0);
+        it.description = gv("desc_" + i) || "";
+    }
+
+    function collectAll() {
+        for (var i = 0; i < items.length; i++) collect(i);
+    }
+
+    function importImage(idx, input) {
+        var file = input.files && input.files[0];
+        if (!file) return;
+        collectAll(); // 关键：先把输入框里已填的值存回数据，否则 render() 会全部打回旧值（大 bug）
+        var reader = new FileReader();
+        reader.onload = function (e) {
+            var img = new Image();
+            img.onload = function () {
+                var canvas = document.createElement("canvas");
+                var max = 96;
+                var scale = Math.min(1, max / Math.max(img.width, img.height));
+                canvas.width = Math.max(1, Math.round(img.width * scale));
+                canvas.height = Math.max(1, Math.round(img.height * scale));
+                var ctx = canvas.getContext("2d");
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                items[idx].image = canvas.toDataURL("image/png");
+                render();
+                saveAutosave();
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    var api = {
+        addWeapon: function () {
+            collectAll();
+            items.push(newItem());
+            render();
+            saveAutosave();
+        },
+        remove: function (i) {
+            collectAll(); // 先保存其他卡片的输入，再删
+            items.splice(i, 1);
+            render();
+            saveAutosave();
+        },
+        removeImage: function (i) {
+            items[i].image = "";
+            render();
+            saveAutosave();
+        },
+        move: function (i, d) {
+            collectAll(); // 先保存输入，再移动
+            var j = i + d;
+            if (j < 0 || j >= items.length) return;
+            var t = items[i]; items[i] = items[j]; items[j] = t;
+            render();
+            saveAutosave();
+        },
+        onTypeChange: function (i) {
+            collectAll(); // 保存所有卡片（不只当前卡），再重绘
+            render();
+            saveAutosave();
+        },
+        clearAll: function () {
+            if (!confirm("确定清空整个武器列表？本地自动存档也会一并清除。")) return;
+            items = [];
+            clearAutosave();
+            render();
+            msg("已清空（本地自动存档一并清除）。");
+        },
+        loadExamples: function () {
+            if (items.length > 0 && !confirm("载入示例会覆盖当前列表，确定？")) return;
+            collectAll();
+            items = [
+                { name: "格洛克19", type: "gun", baseDamage: 2, damageMult: 0.6, scaleStat: "none", scalePer: 0, price: 1200, description: "9mm 紧凑手枪示例。", image: "", caliber: "9mm" },
+                { name: "木棍", type: "blunt", baseDamage: 2, damageMult: 1.0, scaleStat: "physique", scalePer: 80, price: 300, description: "坚实的木棍示例。", image: "", caliber: "9mm" }
+            ];
+            render();
+            saveAutosave();
+        },
+        exportPack: function () {
+            collectAll();
+            var packName = document.getElementById("packName").value.trim();
+            if (!packName) { alert("请先填写武器包名"); return; }
+            try {
+                var r = PackGen.buildFiles(packName, items);
+                var zip = ZipLib.makeZip(r.files);
+                var blob = new Blob([zip], { type: "application/zip" });
+                var a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = "weapon_pack_" + r.packName + ".zip";
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 600);
+                msg("已导出 weapon_pack_" + r.packName + ".zip（" + r.items.length + " 件武器）。先装 weapon_gear，再装本包。");
+            } catch (err) {
+                alert(err.message || String(err));
+            }
+        },
+        /* 导入：点按钮弹文件选择（zip） */
+        importPack: function () {
+            collectAll();
+            var fi = document.getElementById("importFile");
+            if (!fi) return;
+            fi.value = "";
+            fi.click();
+        },
+        /* 从 zip 字节导入武器包：追加合并、重新生成 id、包名覆盖为导入包名 */
+        importFromBytes: function (bytes, fileName) {
+            return ZipLib.readZip(bytes).then(function (files) {
+                var jsName = null;
+                for (var name in files) {
+                    if (/weapons_data\.js$/.test(name)) { jsName = name; break; }
+                }
+                if (!jsName) {
+                    var hint = "";
+                    if (files["武器编制器.html"]) hint = "（这是分享包，先解压取出里面的武器包再导入）";
+                    else if (files["weapons.js"] || files["patch.json5"]) hint = "（这是基础 mod weapon_gear，不是武器包）";
+                    throw new Error("不是有效的武器包：缺少 weapons_data.js" + hint + "。请导入「武器编制器」导出的 weapon_pack_xxx.zip");
+                }
+                return ZipLib.readZipText(files[jsName]).then(function (js) {
+                    var arrText = PackGen.extractPackArray(js);
+                    if (!arrText) throw new Error("weapons_data.js 里找不到武器数据（pack 数组）");
+                    var rawItems;
+                    try { rawItems = JSON.parse(arrText); } catch (e) { throw new Error("武器数据解析失败：" + e.message); }
+                    if (!Array.isArray(rawItems)) throw new Error("武器数据格式不正确");
+
+                    var added = 0, errors = [];
+                    for (var i = 0; i < rawItems.length; i++) {
+                        var r = PackGen.normalizeItem(rawItems[i], i);
+                        if (r.ok) { items.push(r.item); added++; } else { errors.push(r.error); }
+                    }
+                    if (added === 0) throw new Error("没有可导入的武器" + (errors.length ? "（" + errors.join("；") + "）" : ""));
+
+                    /* 包名：优先 boot.json 的 name，其次文件名；去掉 weapon_pack_ 前缀 */
+                    var packName = fileName ? fileName.replace(/\.zip$/i, "") : "";
+                    var bootP = files["boot.json"]
+                        ? ZipLib.readZipText(files["boot.json"]).catch(function () { return null; })
+                        : Promise.resolve(null);
+                    return bootP.then(function (bootText) {
+                        if (bootText) {
+                            try {
+                                var boot = JSON.parse(bootText);
+                                if (boot && boot.name) packName = boot.name;
+                            } catch (e) { /* ignore */ }
+                        }
+                        packName = packName.replace(/^weapon_pack_/, "") || "导入包";
+                        var pnEl = document.getElementById("packName");
+                        if (pnEl) pnEl.value = packName;
+                        saveAutosave();
+                        render();
+                        msg("已导入 " + added + " 件武器" + (errors.length ? "，跳过 " + errors.length + " 件（" + errors.join("；") + "）" : "") + "；包名已设为「" + packName + "」。");
+                    });
+                });
+            }).catch(function (err) {
+                alert((err && err.message) ? err.message : String(err));
+            });
+        },
+        /* 预览计算（供测试/调试）：与游戏内 weaponGearMaxDamage / 防护值一致 */
+        calcMaxDamage: calcMaxDamage,
+        armorScore: armorScoreOf,
+        nameTier: nameTierCls,
+        stats: itemStats,
+        addStat: function (i) {
+            collectAll();
+            if (!Array.isArray(items[i].scaleStats)) items[i].scaleStats = [];
+            items[i].scaleStats.push({ stat: "physique", per: 80 });
+            render();
+            saveAutosave();
+        },
+        removeStat: function (i, j) {
+            collectAll();
+            if (Array.isArray(items[i].scaleStats)) items[i].scaleStats.splice(j, 1);
+            render();
+            saveAutosave();
+        },
+        onStatChange: function (i) {
+            collectAll();
+            updateAllPreviews();
+            saveAutosave();
+        },
+        /* 打开页面时恢复本地自动存档；没有存档返回 false */
+        restore: function () {
+            try {
+                if (typeof localStorage === "undefined") return false;
+                var raw = localStorage.getItem(SAVE_KEY);
+                if (!raw) return false;
+                var data = JSON.parse(raw);
+                if (!data || !Array.isArray(data.items)) return false;
+                items = data.items;
+                var pnEl = document.getElementById("packName");
+                if (pnEl && data.packName) pnEl.value = data.packName;
+                render();
+                msg("已恢复上次未导出的列表（本地自动存档）。");
+                return true;
+            } catch (e) { return false; }
+        }
+    };
+
+    /* 初始化：输入即存（input 事件委托到列表容器，重绘后依然有效） */
+    function init() {
+        try {
+            var pnEl = document.getElementById("packName");
+            if (pnEl) pnEl.addEventListener("input", function () { collectAll(); saveAutosave(); });
+        } catch (e) { /* ignore */ }
+        try {
+            var listEl = document.getElementById("list");
+            if (listEl) listEl.addEventListener("input", function () { collectAll(); updateAllPreviews(); saveAutosave(); });
+        } catch (e) { /* ignore */ }
+        try {
+            var fi = document.getElementById("importFile");
+            if (fi) fi.addEventListener("change", function () {
+                var file = this.files && this.files[0];
+                if (!file) return;
+                var reader = new FileReader();
+                reader.onload = function (e) { api.importFromBytes(new Uint8Array(e.target.result), file.name); };
+                reader.readAsArrayBuffer(file);
+            });
+        } catch (e) { /* ignore */ }
+    }
+    init();
+
+    return api;
+})();
+
+/* 打开页面：有本地自动存档就恢复，否则载入示例 */
+if (!Editor.restore()) Editor.loadExamples();
+</script>
+</body>
+</html>
