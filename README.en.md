@@ -1,0 +1,67 @@
+# Weapon Gear — DoL Weapon / Firearm / Armor System Mod
+
+A mechanic-only equipment expansion: **no rendered clothing images, purely stats & gameplay**. Ships with an in-game builder and a web editor, plus a shareable custom weapon pack ecosystem.
+
+## Features
+
+- **Weapons** — 4 types (blunt / blade / gun / unarmed), 37 built-in items (18 melee + 13 guns + 6 armors); shop with categories / pagination / stat cards; wardrobe equip / unequip / discard / secondary weapon; live sidebar display.
+- **Guns** — 16 ammo calibers (bullet icons + armor-piercing tier 0–6 colors; penetration is a display-only placeholder for now — no concrete mechanic yet); the first shot of each battle costs 1 ammo box; auto-falls back to your secondary weapon when out of ammo; guns & military gear unlock at £6,000 cumulative spend + cash; the PG-7VM rocket deals AOE damage.
+- **Armor** — pain / stress / trauma / control resistances (direction-aware: bad stats only reduce increases, control only reduces losses); durability wear (permanently destroyed at 0); repair service (returns after 1 day, tiered rates by max durability).
+- **Builders** —
+  - In-game workbench: create custom weapons; **since v2.5.20 you can also edit loaded weapon stats** (built-in / weapon-pack shop templates; overrides are saved with your save file, with one-click restore to default; already-owned copies stay as snapshots).
+  - Web editor: import / export weapon pack zips, browser autosave, live preview, combat reference panel.
+- **Weapon pack ecosystem** — export `weapon_pack_*.zip` to share; packs depend on `weapon_gear ^2.0.0`; install the base mod first.
+- **Localization friendly** — the shop entry is injected at runtime; all patch anchors are language-independent (anchored to code, never to visible text), so Chinese-localized builds work too.
+
+## Compatibility
+
+| Target | Status | Notes |
+|---|---|---|
+| DoLP v0.768 goosefem_mys 0.5.11.9 | ✅ Full support | All mechanics (including the brawling / footwork / striking / kicking skills) |
+| Official DoL 0.5.11.9 (mod-loader builds) | ✅ Full support | Stats narrowed to the vanilla trio: physique(0–15000) / athletics(0–1000) / handskill(0–1000); unarmed weapons are auto-mapped |
+| Other versions / other forks | 🟡 Try it | Generally no major issues; run anchor validation if something misbehaves |
+
+**What we change, and what we don't:**
+
+1. Guard-style hooks at stat entry/exit points (purely additive):
+   - Wraps the `pain / stress / trauma / arousal / control` stat functions — armor reduction applies only while armor is worn and the damage direction matches; nothing is intercepted or rewritten;
+   - Patches the combat `<<violence>>` pain / stress lines, the two struggle damage sites, and NPC damage splitting (AOE) — again, only effective while armor is worn.
+2. High Street entry: the weapon shop link is **injected at runtime** — it is anchored to DOM structure (`a[data-passage="Office Lobby"]` and other `data-passage` attributes), not to translated text, so it works in localized builds; the label switches by language (Chinese "武器店 (0:01)" / English "Weapon Shop (0:01)").
+
+The mod is patched in memory by the mod loader; **game source files are never modified** — uninstalling restores the original game.
+
+## Installation
+
+1. Pick the zip for your game version:
+   - DoLP v0.768: `dist/DoLP/武器系统mod_v2.5.20_适配DoLP0.768.zip`
+   - Vanilla DoL 0.5.11.9: `dist/原版DoL/武器系统mod_v2.5.20_适配原版DoL0.5.11.9.zip`
+2. In-game ModLoader → Add / Remove Mods → choose file → sideload → refresh.
+3. (Optional) Install weapon packs: the base mod must be installed first; packs depend on `weapon_gear ^2.0.0`, and installing them in the wrong order disables the pack.
+4. In game: High Street → available places → Weapon Shop / Weapon Workbench / Weapon Wardrobe.
+
+## Editors
+
+- **Web editor** (`dist/DoLP/武器编制器.html` or `dist/原版DoL/武器编制器-原版.html`, just open in a browser):
+  1. Enter a pack name → ＋add weapons and edit each one (name / type / damage / multiplier / stat hooks / price / caliber / armor stats / image) → 📦 export the weapon pack zip;
+  2. 📥 You can also import an existing weapon pack to modify or merge packs;
+  3. Your work is autosaved in the browser; the exported zip is the real backup.
+- **In-game workbench**: create custom weapons; click 修改 on any loaded weapon to edit its stats, 恢复默认 to restore, and custom weapons can be deleted.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
+
+## Repository layout
+
+```
+dist/DoLP/       DoLP mod zip + web editor
+dist/原版DoL/      vanilla DoL mod zip + web editor
+docs/            release notes (quick install guide)
+```
+
+## Notes
+
+- Weapon packs depend on `weapon_gear ^2.0.0`; install the base mod first.
+- Editing a shop template only affects **future** purchases; owned weapons are snapshots taken at purchase time.
+- Web editor autosave lives in the browser; clearing browser data loses it (the exported zip is the real backup).
+- Guns unlock at £6,000 by default (edit `weaponGearUnlockGuns` in the source and repack if you want to change it).
