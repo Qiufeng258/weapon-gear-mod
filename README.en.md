@@ -36,7 +36,7 @@ The mod is patched in memory by the mod loader; **game source files are never mo
 ## Installation
 
 1. Pick the zip for your game version:
-   - **DoL 0.5.12.13 (Lyra / goose builds)**: `dist/DoL0.5.12.13/武器系统mod_v2.5.23_适配DoL0.5.12.13.zip`
+   - **DoL 0.5.12.13 (Lyra / goose builds)**: `dist/DoL0.5.12.13/武器系统mod_v2.5.24_适配DoL0.5.12.13.zip`
    - DoLP v0.768: `dist/DoLP/武器系统mod_v2.5.20_适配DoLP0.768.zip`
    - Vanilla DoL 0.5.11.9: `dist/原版DoL/武器系统mod_v2.5.20_适配原版DoL0.5.11.9.zip`
 2. In-game ModLoader → Add / Remove Mods → choose file → sideload → refresh.
@@ -57,7 +57,7 @@ The mod is patched in memory by the mod loader; **game source files are never mo
   3. Your work is autosaved in the browser; the exported zip is the real backup.
 - **In-game workbench**: create custom weapons; click 修改 on any loaded weapon to edit its stats, 恢复默认 to restore, and custom weapons can be deleted.
 
-## 0.5.12.13 adaptation (v2.5.22 / v2.5.23)
+## 0.5.12.13 adaptation (v2.5.22 – v2.5.24)
 
 Against 0.5.12.13 (Lyra 1.0.1a / goose 1004.1), **13 of the mod's 15 patches still match unchanged**. Only two things moved:
 
@@ -86,8 +86,10 @@ Post-adaptation full audit (item-by-item against 0.5.11.9):
 Those never had a backing variable even in 0.5.11.9 (`currentSkillValue` returns 0), and 0.5.12.13 also dropped the `$brawling` feat variable → the hook is worth +0 and breaks nothing else.
 
 - Both the **web editor** (since v2.5.22) and the **in-game workbench** (since v2.5.23) are narrowed to physique / athletics / handskill, so newly created weapons can no longer hook dead stats.
-- Custom weapons in older saves that already hook `brawling` and friends still display and compute correctly — `weaponGearStatLabel` / `weaponGearStatMax` keep the legacy keys.
-- The 5 built-in unarmed weapons still hook `brawling` (+0). Re-mapping them to `athletics` / `handskill` would raise unarmed damage by roughly 20–100, so it is **left for you to decide** — not changed yet.
+- **Built-in data** (since v2.5.24): the 5 unarmed weapons that hooked `brawling` now hook `handskill`, worth +20 / +50 / +66 / +50 / +100 at max skill.
+- Custom weapons in older saves that already hook `brawling` and friends still display and compute correctly — `weaponGearStatLabel` / `weaponGearStatMax` keep the legacy keys. Already-purchased copies of those 5 items are purchase-time snapshots, so the change only affects new purchases.
+
+No dead stat hooks remain in the 0.5.12.13 build.
 
 **Older builds are not replaced:** DoLP 0.768 and vanilla 0.5.11.9 use different anchors — keep using their
 v2.5.20 / v2.5.21 packages and **do not mix them**.

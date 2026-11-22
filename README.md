@@ -37,7 +37,7 @@ mod 通过加载器在内存中打补丁，**不修改游戏源文件**，卸载
 ## 安装
 
 1. 按你的游戏版本选 zip：
-   - **DoL 0.5.12.13（Lyra / goose 构建）**：`dist/DoL0.5.12.13/武器系统mod_v2.5.23_适配DoL0.5.12.13.zip`
+   - **DoL 0.5.12.13（Lyra / goose 构建）**：`dist/DoL0.5.12.13/武器系统mod_v2.5.24_适配DoL0.5.12.13.zip`
    - DoLP v0.768：`dist/DoLP/武器系统mod_v2.5.20_适配DoLP0.768.zip`
    - 原版 DoL 0.5.11.9：`dist/原版DoL/武器系统mod_v2.5.20_适配原版DoL0.5.11.9.zip`
 2. 游戏内 ModLoader → 添加 / 移除 Mod → 选择文件 → 添加旁加载 → 刷新页面。
@@ -76,12 +76,13 @@ mod 通过加载器在内存中打补丁，**不修改游戏源文件**，卸载
 - `printmoney`（便士 ÷100）、`linkifyDivs`、`createInternalLink`、`Links.generateLinkNumbers`、`Time.pass`、`currentSkillValue` 均仍存在，商业街入口注入与货币换算不需要改；
 - 段落 / widget 名无冲突（游戏 16,087 段落、5,101 widget）。
 
-**已知（非本版回归）**：内置 37 件里有 5 件挂了 `brawling` 属性（5 把徒手武器：黄铜指虎 / 战术指虎 / 单指拳刃 / 双刃拳刺 / 腕戴式爪刃），
-它们在 0.5.11.9 就已经没有对应变量（`currentSkillValue` 恒返回 0），0.5.12.13 连 `$brawling` 这个 feat 变量也删了 → 这条挂钩等于 +0，不影响其他机制。
+**关于旧属性（brawling 等）**：0.5.12.13 里 `brawling / footwork / striking / kicking` 都没有对应变量（`currentSkillValue` 恒返回 0），连 `$brawling` 这个 feat 变量也被删了。本版已全部收口：
 
-- **网页编制器**（v2.5.22 起）与 **游戏内工作台**（v2.5.23 起）都已按新版收敛：可挂钩属性只有 体能 / 运动 / 格斗技巧，新建武器不会挂到死属性上。
-- 老存档里已经有旧属性（brawling 等）的自定义武器仍能正常显示与计算 —— `weaponGearStatLabel` / `weaponGearStatMax` 保留了旧键。
-- 那 5 件内置徒手武器的 `brawling` 是否改挂 `athletics` / `handskill`（会实质提升徒手伤害，约 +20~100）尚未改动，等你拍板。
+- **网页编制器**（v2.5.22 起）与 **游戏内工作台**（v2.5.23 起）只提供 体能 / 运动 / 格斗技巧；
+- **内置数据**（v2.5.24 起）：原来挂 `brawling` 的 5 件徒手武器改挂 `handskill`（格斗技巧），满级按 per 换算 +20 / +50 / +66 / +50 / +100；
+- 老存档里已挂旧属性的**自定义**武器仍能正常显示与计算（`weaponGearStatLabel` / `weaponGearStatMax` 保留旧键）；已购买的 5 件内置武器是购买时快照，改动只对新购买生效。
+
+至此 0.5.12.13 版没有任何死挂钩。
 
 **旧版本不会被替代**：DoLP 0.768 与原版 0.5.11.9 的锚点与新版不同，请继续用对应的 v2.5.20 / v2.5.21 包，**不要混装**。
 
