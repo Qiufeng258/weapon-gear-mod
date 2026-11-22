@@ -36,7 +36,7 @@ The mod is patched in memory by the mod loader; **game source files are never mo
 ## Installation
 
 1. Pick the zip for your game version:
-   - **DoL 0.5.12.13 (Lyra / goose builds)**: `dist/DoL0.5.12.13/武器系统mod_v2.5.22_适配DoL0.5.12.13.zip`
+   - **DoL 0.5.12.13 (Lyra / goose builds)**: `dist/DoL0.5.12.13/武器系统mod_v2.5.23_适配DoL0.5.12.13.zip`
    - DoLP v0.768: `dist/DoLP/武器系统mod_v2.5.20_适配DoLP0.768.zip`
    - Vanilla DoL 0.5.11.9: `dist/原版DoL/武器系统mod_v2.5.20_适配原版DoL0.5.11.9.zip`
 2. In-game ModLoader → Add / Remove Mods → choose file → sideload → refresh.
@@ -46,7 +46,7 @@ The mod is patched in memory by the mod loader; **game source files are never mo
 ## Editors
 
 - **Web editor** (open in a browser):
-  - `dist/DoL0.5.12.13/武器编制器.html` — **DoL 0.5.12.13 version**: hookable stats are narrowed to physique / athletics / hands kill (the new build has no `brawling`-style variables)
+  - `dist/DoL0.5.12.13/武器编制器.html` — **DoL 0.5.12.13 version**: hookable stats are narrowed to physique / athletics / handskill (the new build has no `brawling`-style variables)
   - `dist/DoLP/武器编制器.html` — DoLP version (stats include brawling / footwork / striking / kicking)
   - `dist/原版DoL/武器编制器-原版.html` — vanilla DoL version (three stats / physique cap 15000)
 
@@ -57,7 +57,7 @@ The mod is patched in memory by the mod loader; **game source files are never mo
   3. Your work is autosaved in the browser; the exported zip is the real backup.
 - **In-game workbench**: create custom weapons; click 修改 on any loaded weapon to edit its stats, 恢复默认 to restore, and custom weapons can be deleted.
 
-## 0.5.12.13 adaptation (v2.5.22)
+## 0.5.12.13 adaptation (v2.5.22 / v2.5.23)
 
 Against 0.5.12.13 (Lyra 1.0.1a / goose 1004.1), **13 of the mod's 15 patches still match unchanged**. Only two things moved:
 
@@ -85,8 +85,9 @@ Post-adaptation full audit (item-by-item against 0.5.11.9):
 **Known (not a regression):** 5 of the 37 built-in weapons hook `brawling` (the 5 unarmed ones: brass knuckles / tactical knuckles / single-blade / double-blade / wrist claws).
 Those never had a backing variable even in 0.5.11.9 (`currentSkillValue` returns 0), and 0.5.12.13 also dropped the `$brawling` feat variable → the hook is worth +0 and breaks nothing else.
 
-- The **web editor** is already narrowed for the new build: `dist/DoL0.5.12.13/武器编制器.html` only offers physique / athletics / hands kill, so newly created weapons can't hook dead stats.
-- The **in-game workbench** still lists the old stats (brawling / footwork / striking / kicking, also +0), and those 5 built-in unarmed weapons still hook `brawling`. Aligning both (and re-mapping the 5 items to `athletics`, which would raise unarmed damage by 20–100) is **left for you to decide** — not changed yet.
+- Both the **web editor** (since v2.5.22) and the **in-game workbench** (since v2.5.23) are narrowed to physique / athletics / handskill, so newly created weapons can no longer hook dead stats.
+- Custom weapons in older saves that already hook `brawling` and friends still display and compute correctly — `weaponGearStatLabel` / `weaponGearStatMax` keep the legacy keys.
+- The 5 built-in unarmed weapons still hook `brawling` (+0). Re-mapping them to `athletics` / `handskill` would raise unarmed damage by roughly 20–100, so it is **left for you to decide** — not changed yet.
 
 **Older builds are not replaced:** DoLP 0.768 and vanilla 0.5.11.9 use different anchors — keep using their
 v2.5.20 / v2.5.21 packages and **do not mix them**.

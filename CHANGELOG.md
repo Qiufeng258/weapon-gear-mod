@@ -1,5 +1,10 @@
 # 更新记录
 
+## v2.5.23（2026-11-23）— 游戏内工作台属性下拉收敛
+- 工作台（Weapon Workbench）的可挂钩属性：6 项 → 3 项（体能 / 运动 / 格斗技巧）。`brawling / footwork / striking / kicking` 在 0.5.12.13 里没有对应变量（选中恒 +0），不再提供。
+- `weaponGearStatLabel` / `weaponGearStatMax` 补 `handskill`；旧键保留，老存档里已挂旧属性的自定义武器仍能正常显示与计算。
+- 5 件内置徒手武器仍挂 `brawling`（+0），是否改挂 `athletics`/`handskill` 待决定。
+
 ## v2.5.22（2026-11-23）— 适配 DoL 0.5.12.13 / Lyra 1.0.1a / goose 1004.1
 - 适配 0.5.12.13：核心伤害锚点改版（`defiance` 组件改用 `($physique / 4000)`），已重新定锚。
 - 0.5.12.13 删除了 `struggle_defense_result` 组件（dodge 耗尽扣血机制消失）→ 移除对应补丁；剩余两处挣扎扣血仍覆盖。
